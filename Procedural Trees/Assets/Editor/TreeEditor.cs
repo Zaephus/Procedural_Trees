@@ -10,17 +10,15 @@ public class TreeEditor : Editor {
 
     public override void OnInspectorGUI() {
 
-        base.OnInspectorGUI();
+        using(var check = new EditorGUI.ChangeCheckScope()) {
 
-        // using(var check = new EditorGUI.ChangeCheckScope()) {
+            base.OnInspectorGUI();
 
-        //     base.OnInspectorGUI();
+            if(check.changed) {
+                tree.Generate();
+            }
 
-        //     if(check.changed) {
-        //         Generate();
-        //     }
-
-        // }
+        }
 
         if(GUILayout.Button("Generate")) {
             tree.Generate();
