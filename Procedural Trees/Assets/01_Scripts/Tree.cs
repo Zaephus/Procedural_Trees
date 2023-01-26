@@ -7,15 +7,13 @@ public class Tree : MonoBehaviour {
 
     [SerializeField]
     private bool drawGizmos;
+    [SerializeField]
+    private float gizmoSize;
+    [SerializeField]
+    private bool flatShaded;
 
     [SerializeField, Range(3, 36)]
     private int vertexResolution;
-    [SerializeField]
-    private float trunkSize;
-    [SerializeField]
-    private float height;
-    [SerializeField, Range(2, 36)]
-    private int heightResolution;
 
     #region Dependencies
     [Header("Dependencies")]
@@ -88,6 +86,7 @@ public class Tree : MonoBehaviour {
     #endregion
     private List<Vector3> points = new List<Vector3>();
     private List<Vector3> vertices = new List<Vector3>();
+    private List<int> triangles = new List<int>();
 
     private enum Shape {
         Conical = 0,
@@ -123,61 +122,96 @@ public class Tree : MonoBehaviour {
     
     public void Generate() {
 
-        points.Clear();
-        vertices.Clear();
-        
-        meshFilter.sharedMesh = new Mesh();
-        meshFilter.GetComponent<MeshRenderer>().sharedMaterial = treeMaterial;
+        points = SetTrunkPoints();
+        vertices = SetTrunkVertices();
+        triangles = SetTrunkTriangles();
 
-        // points =  new List<Vector3> {
-        //     transform.position,
-        //     transform.position + new Vector3(Random.Range(-trunkSize, trunkSize), height/2, Random.Range(-trunkSize, trunkSize)),
-        //     transform.position + new Vector3(Random.Range(-trunkSize, trunkSize), height, Random.Range(-trunkSize, trunkSize))
-        // };
-
-        points.Add(transform.position);
-        for(int i = 1; i < heightResolution; i++) {
-            int inverseIndex = heightResolution-i;
-            points.Add(transform.position + new Vector3(Random.Range(-trunkSize, trunkSize) / inverseIndex, 
-                                                        i * (height/heightResolution),
-                                                        Random.Range(-trunkSize, trunkSize) / inverseIndex));
+        if(flatShaded) {
+            vertices = SetFlatShadedNormals();
         }
 
-        //Vector3[] vertices = new Vector3[points.Length * vertexResolution];
+        SetMesh();
+
+    }
+
+    private List<Vector3> SetTrunkPoints() {
+
+        List<Vector3> pointSet = new List<Vector3>();
+
+        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
+        float baseRadius = length  * ratio * (baseScale + baseScaleVariance);
+
+        pointSet.Add(transform.position);
+        for(int i = 1; i < baseCurveResolution; i++) {
+            int inverseIndex = (int)baseCurveResolution-i;
+            pointSet.Add(transform.position + new Vector3(Random.Range(-baseRadius, baseRadius) / inverseIndex, 
+                                                        i * (baseLength/baseCurveResolution),
+                                                        Random.Range(-baseRadius, baseRadius) / inverseIndex));
+        }
+
+        return pointSet;
+
+    }
+
+    private List<Vector3> SetTrunkVertices() {
+
+        List<Vector3> vertexSet = new List<Vector3>();
+        
+        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
+        float baseRadius = length  * ratio * (baseScale + baseScaleVariance);
 
         for(int i = 0; i < points.Count; i++) {
-
             int inverseIndex = points.Count - i;
-
             for(int j = 0; j < vertexResolution; j++) {
                 float currentAngle = ((2*Mathf.PI)/vertexResolution)*j;
-                vertices.Add(points[i] + (trunkSize / (i+2)) * new Vector3(Mathf.Cos(currentAngle), 0, Mathf.Sin(currentAngle)));
+                vertexSet.Add(points[i] + (baseRadius / (i+2)) * new Vector3(Mathf.Cos(currentAngle), 0, Mathf.Sin(currentAngle)));
             }
 
         }
 
-        
-        int[] triangles = new int[(vertices.Count - vertexResolution) * 6];
+        return vertexSet;
 
-        for(int i = 0; i < triangles.Length/6; i++) {
-            triangles[i * 6 + 0] = i + vertexResolution - 1;
-            triangles[i * 6 + 1] = i + vertexResolution;
-            triangles[i * 6 + 2] = i + vertexResolution - vertexResolution;
+    }
 
-            triangles[i * 6 + 3] = i + vertexResolution;
-            triangles[i * 6 + 4] = i + vertexResolution - vertexResolution + 1;
-            triangles[i * 6 + 5] = i + vertexResolution - vertexResolution;
+    private List<int> SetTrunkTriangles() {
+
+        List<int> triangleSet = new List<int>();
+
+        for(int i = 0; i < vertices.Count - vertexResolution; i++) {
+            triangleSet.Add(i + vertexResolution - 1);
+            triangleSet.Add(i + vertexResolution);
+            triangleSet.Add(i + vertexResolution - vertexResolution);
+
+            triangleSet.Add(i + vertexResolution);
+            triangleSet.Add(i + vertexResolution - vertexResolution + 1);
+            triangleSet.Add(i + vertexResolution - vertexResolution);
         }
 
-        Vector3[] finalVertices = new Vector3[triangles.Length];
-        for (int i = 0; i < triangles.Length; i++) {
-            finalVertices[i] = vertices[triangles[i]];
+        return triangleSet;
+
+    }
+
+    private List<Vector3> SetFlatShadedNormals() {
+
+        List<Vector3> vertexSet = new List<Vector3>();
+
+        for (int i = 0; i < triangles.Count; i++) {
+            vertexSet.Add(vertices[triangles[i]]);
             triangles[i] = i;
         }
 
+        return vertexSet;
+
+    }
+
+    private void SetMesh() {
+
+        meshFilter.sharedMesh = new Mesh();
+        meshFilter.GetComponent<MeshRenderer>().sharedMaterial = treeMaterial;
+        
         meshFilter.sharedMesh.Clear();
-        meshFilter.sharedMesh.vertices = finalVertices;
-        meshFilter.sharedMesh.triangles = triangles;
+        meshFilter.sharedMesh.vertices = vertices.ToArray();
+        meshFilter.sharedMesh.triangles = triangles.ToArray();
         meshFilter.sharedMesh.RecalculateNormals();
         meshFilter.sharedMesh.RecalculateBounds();
 
@@ -189,7 +223,7 @@ public class Tree : MonoBehaviour {
             Gizmos.color = Color.blue;
 
             foreach(Vector3 vert in vertices) {
-                Gizmos.DrawSphere(vert, 0.2f);
+                Gizmos.DrawSphere(vert, gizmoSize);
             }
 
             Gizmos.color = Color.green;
