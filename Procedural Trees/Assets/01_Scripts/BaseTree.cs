@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-public class Tree : MonoBehaviour {
+public class BaseTree : MonoBehaviour {
 
     [SerializeField]
     private bool drawGizmos;
@@ -127,30 +127,18 @@ public class Tree : MonoBehaviour {
         points = SetTrunkPoints();
         //vertices = SetTrunkVertices();
 
-        segments.Clear();
-        vertices.Clear();
-
         float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
-        float baseRadius = length * ratio * (baseScale + baseScaleVariance);
+        float baseRadius = length  * ratio * (baseScale + baseScaleVariance);
 
         for(int i = 0; i < points.Count; i++) {
             Vector3 rot = Vector3.zero;
-            Vector3 midPoint = points[i];
             if(i > 0) {
-                rot = segments[i-1].rotation;
-                rot += new Vector3(
-                    Mathf.Deg2Rad * (baseCurve/baseCurveResolution),
-                    Mathf.Deg2Rad * Random.Range(-baseCurveVariance/baseCurveResolution, baseCurveVariance/baseCurveResolution),
-                    0
-                );
-                float dist = Vector3.Distance(points[i], points[i-1]);
-                midPoint = points[i] + new Vector3(Mathf.Cos(segments[i-1].rotation.y), Mathf.Sin(segments[i-1].rotation.y) * Mathf.Sin(segments[i-1].rotation.x), -Mathf.Sin(segments[i-1].rotation.y) * Mathf.Cos(segments[i-1].rotation.x));
+                rot = new Vector3(Mathf.Cos(baseCurveVariance/baseCurveResolution), 0, Mathf.Sin(baseCurveVariance/baseCurveResolution));
             }
             
-            segments.Add(new TrunkSegment(midPoint, rot, baseRadius, vertexResolution));
+            segments.Add(new TrunkSegment(points[i], rot, baseRadius, vertexResolution));
             vertices.AddRange(segments[i].vertices);
         }
-
         triangles = SetTrunkTriangles();
 
         if(flatShaded) {
@@ -171,7 +159,9 @@ public class Tree : MonoBehaviour {
         pointSet.Add(transform.position);
         for(int i = 1; i < baseCurveResolution; i++) {
             int inverseIndex = (int)baseCurveResolution-i;
-            pointSet.Add(transform.position + new Vector3(0, i * (baseLength/baseCurveResolution), 0));
+            pointSet.Add(transform.position + new Vector3(Random.Range(-baseRadius, baseRadius) / inverseIndex, 
+                                                        i * (baseLength/baseCurveResolution),
+                                                        Random.Range(-baseRadius, baseRadius) / inverseIndex));
         }
 
         return pointSet;
