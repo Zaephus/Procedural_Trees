@@ -64,13 +64,13 @@ public class Tree : MonoBehaviour {
     [SerializeField]
     private int baseSplits;
     [SerializeField]
-    private int basesegmentSplits;
+    private int baseSegmentSplits;
     [SerializeField]
-    private float basesplitAngle;
+    private float baseSplitAngle;
     [SerializeField]
     private float baseSplitAngleVariance;
-    [SerializeField]
-    private float baseCurveResolution;
+    [SerializeField, Range(2, 16)]
+    private int baseCurveResolution;
     [SerializeField]
     private float baseCurve;
     [SerializeField]
@@ -115,7 +115,7 @@ public class Tree : MonoBehaviour {
         public int segmentSplits;
         public float splitAngle;
         public float splitAngleVariance;
-        public float curveResolution;
+        public int curveResolution;
         public float curve;
         public float curveBack;
         public float curveVariation;
@@ -141,8 +141,9 @@ public class Tree : MonoBehaviour {
         segments.Clear();
         vertices.Clear();
 
-        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
-        float baseRadius = length * ratio * (baseScale + baseScaleVariance);
+        float length = (scale - scaleVariance) * (baseLength - baseLengthVariance);
+        float baseRadius = length * ratio * (baseScale - baseScaleVariance);
+        float segmentLength = length/baseCurveResolution;
         
         Vector3 midPoint = transform.position;
 
@@ -158,13 +159,17 @@ public class Tree : MonoBehaviour {
 
                 Vector3 PQ = segments[i-1].midPoint - segments[i-1].vertices[0];
                 Vector3 PR = segments[i-1].midPoint - segments[i-1].vertices[1];
-                Vector3 normal = -Vector3.Cross(PQ, PR).normalized;
+                Vector3 normal = -Vector3.Cross(PQ, PR);
+                normal.Normalize();
                 
-                midPoint = segments[i-1].midPoint + normal * (i * (baseLength/baseCurveResolution));
+                midPoint = segments[i-1].midPoint + normal * (segmentLength);
 
             }
+
+            float z = (i+1) * length/baseCurveResolution;
+            float rad = CalculateTaper(z/length);
             
-            segments.Add(new TrunkSegment(midPoint, rot, baseRadius, vertexResolution));
+            segments.Add(new TrunkSegment(midPoint, rot, rad, vertexResolution));
             vertices.AddRange(segments[i].vertices);
 
         }
@@ -203,8 +208,11 @@ public class Tree : MonoBehaviour {
     }
 
     private float CalculateTaper(float _z) {
+        
+        float length = (scale - scaleVariance) * (baseLength - baseLengthVariance);
+        float baseRadius = length * ratio * (baseScale - baseScaleVariance);
 
-        float radius = 1;
+        float radius = baseRadius;
 
         float unitTaper;
 
@@ -217,9 +225,6 @@ public class Tree : MonoBehaviour {
         else {
             unitTaper = 0;
         }
-
-        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
-        float baseRadius = length * ratio * (baseScale + baseScaleVariance);
 
         float taper = baseRadius * (1 - unitTaper * _z);
 
