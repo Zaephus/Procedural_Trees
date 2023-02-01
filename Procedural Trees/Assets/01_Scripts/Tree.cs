@@ -84,7 +84,7 @@ public class Tree : MonoBehaviour {
     [SerializeField]
     private BranchData[] branchDatas;
     #endregion
-    private List<Vector3> points = new List<Vector3>();
+    
     private List<Vector3> vertices = new List<Vector3>();
     private List<int> triangles = new List<int>();
 
@@ -124,32 +124,7 @@ public class Tree : MonoBehaviour {
     
     public void Generate() {
 
-        points = SetTrunkPoints();
-        //vertices = SetTrunkVertices();
-
-        segments.Clear();
-        vertices.Clear();
-
-        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
-        float baseRadius = length * ratio * (baseScale + baseScaleVariance);
-
-        for(int i = 0; i < points.Count; i++) {
-            Vector3 rot = Vector3.zero;
-            Vector3 midPoint = points[i];
-            if(i > 0) {
-                rot = segments[i-1].rotation;
-                rot += new Vector3(
-                    Mathf.Deg2Rad * (baseCurve/baseCurveResolution),
-                    Mathf.Deg2Rad * Random.Range(-baseCurveVariance/baseCurveResolution, baseCurveVariance/baseCurveResolution),
-                    0
-                );
-                float dist = Vector3.Distance(points[i], points[i-1]);
-                midPoint = points[i] + new Vector3(Mathf.Cos(segments[i-1].rotation.y), Mathf.Sin(segments[i-1].rotation.y) * Mathf.Sin(segments[i-1].rotation.x), -Mathf.Sin(segments[i-1].rotation.y) * Mathf.Cos(segments[i-1].rotation.x));
-            }
-            
-            segments.Add(new TrunkSegment(midPoint, rot, baseRadius, vertexResolution));
-            vertices.AddRange(segments[i].vertices);
-        }
+        SetTrunkSegments();        
 
         triangles = SetTrunkTriangles();
 
@@ -161,40 +136,38 @@ public class Tree : MonoBehaviour {
 
     }
 
-    private List<Vector3> SetTrunkPoints() {
+    private void SetTrunkSegments() {
 
-        List<Vector3> pointSet = new List<Vector3>();
+        segments.Clear();
+        vertices.Clear();
 
         float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
-        float baseRadius = length  * ratio * (baseScale + baseScaleVariance);
-
-        pointSet.Add(transform.position);
-        for(int i = 1; i < baseCurveResolution; i++) {
-            int inverseIndex = (int)baseCurveResolution-i;
-            pointSet.Add(transform.position + new Vector3(0, i * (baseLength/baseCurveResolution), 0));
-        }
-
-        return pointSet;
-
-    }
-
-    private List<Vector3> SetTrunkVertices() {
-
-        List<Vector3> vertexSet = new List<Vector3>();
+        float baseRadius = length * ratio * (baseScale + baseScaleVariance);
         
-        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
-        float baseRadius = length  * ratio * (baseScale + baseScaleVariance);
+        Vector3 midPoint = transform.position;
 
-        for(int i = 0; i < points.Count; i++) {
-            for(int j = 0; j < vertexResolution; j++) {
-                float currentAngle = ((2*Mathf.PI)/vertexResolution)*j + (Mathf.Deg2Rad * (baseCurveVariance/baseCurveResolution));
-                Vector3 rot = new Vector3(Mathf.Cos(currentAngle), 0, Mathf.Sin(currentAngle));
-                vertexSet.Add(points[i] + baseRadius * rot);
+        for(int i = 0; i < baseCurveResolution; i++) {
+            Vector3 rot = Vector3.zero;
+            if(i > 0) {
+                rot = segments[i-1].rotation;
+                rot += new Vector3(
+                    Mathf.Deg2Rad * (baseCurve/baseCurveResolution),
+                    Mathf.Deg2Rad * Random.Range(-baseCurveVariance/baseCurveResolution, baseCurveVariance/baseCurveResolution),
+                    0
+                );
+
+                Vector3 PQ = segments[i-1].midPoint - segments[i-1].vertices[0];
+                Vector3 PR = segments[i-1].midPoint - segments[i-1].vertices[1];
+                Vector3 normal = -Vector3.Cross(PQ, PR).normalized;
+                
+                midPoint = segments[i-1].midPoint + normal * (i * (baseLength/baseCurveResolution));
+
             }
+            
+            segments.Add(new TrunkSegment(midPoint, rot, baseRadius, vertexResolution));
+            vertices.AddRange(segments[i].vertices);
 
         }
-
-        return vertexSet;
 
     }
 
@@ -229,6 +202,65 @@ public class Tree : MonoBehaviour {
 
     }
 
+    private float CalculateTaper(float _z) {
+
+        float radius = 1;
+
+        float unitTaper;
+
+        if(baseTaper >= 0 && baseTaper < 1) {
+            unitTaper = baseTaper;
+        }
+        else if(baseTaper >= 1 && baseTaper < 2) {
+            unitTaper = 2 - baseTaper;
+        }
+        else {
+            unitTaper = 0;
+        }
+
+        float length = (scale + scaleVariance) * (baseLength + baseLengthVariance);
+        float baseRadius = length * ratio * (baseScale + baseScaleVariance);
+
+        float taper = baseRadius * (1 - unitTaper * _z);
+
+        float zTwo;
+        float zThree;
+        
+        float depth;
+
+        if(baseTaper >= 0 && baseTaper < 1) {
+            radius = taper;
+        }
+        else if(baseTaper >= 1 && baseTaper <= 3) {
+            zTwo = (1 - _z) * length;
+
+            if(baseTaper < 2 || zTwo < taper) {
+                depth = 1;
+            }
+            else {
+                depth = baseTaper - 2;
+            }
+
+            if(baseTaper < 2) {
+                zThree = zTwo;
+            }
+            else {
+                zThree = Mathf.Abs(zTwo - (2 * taper * ((int)(zTwo / (2 * taper)))) + 0.5f);
+            }
+
+            if(baseTaper < 2 && zThree >= taper) {
+                radius = taper;
+            }
+            else {
+                radius = (1 - depth) * taper + depth * Mathf.Sqrt((taper * taper) - Mathf.Pow((zThree - taper), 2));
+            }
+
+        }
+
+        return radius;
+
+    }
+
     private void SetMesh() {
 
         meshFilter.sharedMesh = new Mesh();
@@ -251,10 +283,6 @@ public class Tree : MonoBehaviour {
                 Gizmos.DrawSphere(vert, gizmoSize);
             }
 
-            Gizmos.color = Color.green;
-            for(int i = 1; i < points.Count; i++) {
-                Gizmos.DrawLine(points[i-1], points[i]);
-            }
         }
 
     }

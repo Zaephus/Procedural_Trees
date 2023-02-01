@@ -32,9 +32,6 @@ public class TrunkSegment {
             float beta = rotation.x;
             Vector3 vertex = new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha) * Mathf.Sin(beta), -Mathf.Sin(alpha) * Mathf.Cos(beta));
             vertexSet.Add(midPoint + radius * vertex);
-
-            Debug.Log(i + " " + vertex);
-
         }
 
         return vertexSet;
