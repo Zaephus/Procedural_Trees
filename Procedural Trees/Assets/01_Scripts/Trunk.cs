@@ -8,6 +8,7 @@ public class Trunk {
 
     private int radialResolution;
     private int segmentResolution;
+    private int vertexSegmentAmount;
 
     #region Parameters
 
@@ -45,9 +46,11 @@ public class Trunk {
 
         data = _data;
 
-        length = (scale - scaleVariance) * (data.length - data.lengthVariance);
-        segmentLength = length/data.curveResolution;
-        baseRadius = length * ratio * (data.scale - data.scaleVariance);
+        vertexSegmentAmount = data.curveResolution * segmentResolution;
+
+        length = (scale + scaleVariance) * (data.length + data.lengthVariance);
+        segmentLength = length/vertexSegmentAmount;
+        baseRadius = length * ratio * (data.scale + data.scaleVariance);
 
     }
 
@@ -68,47 +71,57 @@ public class Trunk {
         Vector3 midPoint = startPoint;
         Vector3 rotation = Vector3.zero;
 
-        for(int i = 0; i < data.curveResolution; i++) {
-            if(i > 0) {
+        int vertexSegmentIndex = 0;
 
-                rotation = vertexSegmentSet[i-1].rotation;
-                if(data.curveBack == 0) {
-                    rotation += new Vector3(
-                        Mathf.Deg2Rad * (data.curve/data.curveResolution),
-                        Mathf.Deg2Rad * Random.Range(-data.curveVariance/data.curveResolution, data.curveVariance/data.curveResolution),
-                        0
-                    );
-                }
-                else {
-                    if(i < data.curveResolution/2) {
-                        rotation += new Vector3(
-                            Mathf.Deg2Rad * (data.curve/(data.curveResolution/2)),
-                            Mathf.Deg2Rad * Random.Range(-data.curveVariance/data.curveResolution, data.curveVariance/data.curveResolution),
-                            0
-                        );
+        for(int i = 0; i <= data.curveResolution; i++) {
+            for(int j = 0; j < segmentResolution; j++) {
+                if(vertexSegmentIndex > 0) {
+
+                    rotation = vertexSegmentSet[vertexSegmentIndex-1].rotation;
+
+                    if(j == 0) {
+                        if(data.curveBack == 0) {
+                            rotation += new Vector3(
+                                Mathf.Deg2Rad * (data.curve/data.curveResolution),
+                                Mathf.Deg2Rad * Random.Range(-data.curveVariance/data.curveResolution, data.curveVariance/data.curveResolution),
+                                0
+                            );
+                        }
+                        else {
+                            if(i < data.curveResolution/2) {
+                                rotation += new Vector3(
+                                    Mathf.Deg2Rad * (data.curve/(data.curveResolution/2)),
+                                    Mathf.Deg2Rad * Random.Range(-data.curveVariance/data.curveResolution, data.curveVariance/data.curveResolution),
+                                    0
+                                );
+                            }
+                            else {
+                                rotation += new Vector3(
+                                    Mathf.Deg2Rad * (data.curveBack/(data.curveResolution/2)),
+                                    Mathf.Deg2Rad * Random.Range(-data.curveVariance/data.curveResolution, data.curveVariance/data.curveResolution),
+                                    0
+                                );
+                            }
+                        }
                     }
-                    else {
-                        rotation += new Vector3(
-                            Mathf.Deg2Rad * (data.curveBack/(data.curveResolution/2)),
-                            Mathf.Deg2Rad * Random.Range(-data.curveVariance/data.curveResolution, data.curveVariance/data.curveResolution),
-                            0
-                        );
-                    }
+
+                    Vector3 PQ = vertexSegmentSet[vertexSegmentIndex-1].midPoint - vertexSegmentSet[vertexSegmentIndex-1].vertices[0];
+                    Vector3 PR = vertexSegmentSet[vertexSegmentIndex-1].midPoint - vertexSegmentSet[vertexSegmentIndex-1].vertices[1];
+                    Vector3 normal = -Vector3.Cross(PQ, PR);
+                    normal.Normalize();
+
+                    midPoint = vertexSegmentSet[vertexSegmentIndex-1].midPoint + normal * segmentLength;
+
                 }
 
-                Vector3 PQ = vertexSegmentSet[i-1].midPoint - vertexSegmentSet[i-1].vertices[0];
-                Vector3 PR = vertexSegmentSet[i-1].midPoint - vertexSegmentSet[i-1].vertices[1];
-                Vector3 normal = -Vector3.Cross(PQ, PR);
-                normal.Normalize();
+                float height = vertexSegmentIndex * segmentLength;
+                float radius = TreeMeshBuilder.CalculateTaper(height/length, data.taper, length, baseRadius);
 
-                midPoint = vertexSegmentSet[i-1].midPoint + normal * segmentLength;
+                vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius, radialResolution));
+
+                vertexSegmentIndex++;
 
             }
-
-            float height = (i+1) * length / data.curveResolution;
-            float radius = TreeMeshBuilder.CalculateTaper(height/length, data.taper, length, baseRadius);
-
-            vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius, radialResolution));
 
         }
 

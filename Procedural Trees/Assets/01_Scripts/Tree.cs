@@ -15,13 +15,13 @@ public enum TreeShape {
 
 [System.Serializable]
 public class Tree : MonoBehaviour {
-    
+
     [SerializeField]
     private bool flatShaded;
 
     [SerializeField, Range(3, 36)]
     private int radialVertexResolution;
-    [SerializeField, Range(2, 16)]
+    [SerializeField, Range(1, 16)]
     private int segmentVertexResolution;
 
     [SerializeField]
