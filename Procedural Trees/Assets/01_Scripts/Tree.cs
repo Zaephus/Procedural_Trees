@@ -59,7 +59,7 @@ public class Tree : MonoBehaviour {
     private float baseLength;
     [SerializeField]
     private float baseLengthVariance;
-    [SerializeField]
+    [SerializeField, Range(0f, 3f)]
     private float baseTaper;
     [SerializeField]
     private int baseSplits;
@@ -88,7 +88,7 @@ public class Tree : MonoBehaviour {
     private List<Vector3> vertices = new List<Vector3>();
     private List<int> triangles = new List<int>();
 
-    public List<TrunkSegment> segments = new List<TrunkSegment>();
+    private List<TrunkSegment> segments = new List<TrunkSegment>();
 
     private enum Shape {
         Conical = 0,
@@ -142,7 +142,6 @@ public class Tree : MonoBehaviour {
         vertices.Clear();
 
         float length = (scale - scaleVariance) * (baseLength - baseLengthVariance);
-        float baseRadius = length * ratio * (baseScale - baseScaleVariance);
         float segmentLength = length/baseCurveResolution;
         
         Vector3 midPoint = transform.position;
@@ -250,14 +249,14 @@ public class Tree : MonoBehaviour {
                 zThree = zTwo;
             }
             else {
-                zThree = Mathf.Abs(zTwo - (2 * taper * ((int)(zTwo / (2 * taper)))) + 0.5f);
+                zThree = Mathf.Abs(zTwo - (2 * taper * ((int)(zTwo / (2 * taper) + 0.5f))));
             }
 
             if(baseTaper < 2 && zThree >= taper) {
                 radius = taper;
             }
             else {
-                radius = (1 - depth) * taper + depth * Mathf.Sqrt((taper * taper) - Mathf.Pow((zThree - taper), 2));
+                radius = (1 - depth) * taper + depth * Mathf.Sqrt((taper * taper) - ((zThree - taper)*(zThree - taper)));
             }
 
         }

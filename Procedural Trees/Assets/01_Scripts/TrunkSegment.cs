@@ -27,14 +27,32 @@ public class TrunkSegment {
 
         List<Vector3> vertexSet = new List<Vector3>();
 
+        float alpha = 0;
+        float beta = rotation.x;
+        float gamma = rotation.y;
+
         for(int i = 0; i < _res; i++) {
-            float alpha = -((2*Mathf.PI)/_res)*i + rotation.y;
-            float beta = rotation.x;
-            Vector3 vertex = new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha) * Mathf.Sin(beta), -Mathf.Sin(alpha) * Mathf.Cos(beta));
+
+            alpha = -((2*Mathf.PI)/_res)*i;
+
+            Vector3 vertex = new Vector3(
+                Mathf.Cos(alpha),
+                Mathf.Sin(alpha) * Mathf.Sin(beta),
+                -Mathf.Sin(alpha) * Mathf.Cos(beta)
+            );
+
+            vertex = new Vector3(
+                vertex.x * Mathf.Cos(gamma) + vertex.z * Mathf.Sin(gamma),
+                vertex.y,
+                -vertex.x * Mathf.Sin(gamma) + vertex.z * Mathf.Cos(gamma)
+            );
+
             vertexSet.Add(midPoint + radius * vertex);
+
         }
 
         return vertexSet;
+
     }
 
 }
