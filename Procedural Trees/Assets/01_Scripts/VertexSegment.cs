@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-public class TrunkSegment {
+public class VertexSegment {
 
     public Vector3 midPoint;
     public List<Vector3> vertices = new List<Vector3>();
@@ -12,7 +12,7 @@ public class TrunkSegment {
 
     public float radius;
 
-    public TrunkSegment(Vector3 _pos, Vector3 _rot, float _rad, int _res) {
+    public VertexSegment(Vector3 _pos, Vector3 _rot, float _rad, int _res) {
 
         midPoint = _pos;
         rotation = _rot;
