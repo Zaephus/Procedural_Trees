@@ -3,8 +3,6 @@ using System;
 [Serializable]
 public struct TrunkData {
 
-    public float lobes;
-    public float lobeDepth;
     public float flare;
     public float scale;
     public float scaleVariance;

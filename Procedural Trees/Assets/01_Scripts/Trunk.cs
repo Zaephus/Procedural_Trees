@@ -117,7 +117,9 @@ public class Trunk {
                 float height = vertexSegmentIndex * segmentLength;
                 float radius = TreeMeshBuilder.CalculateTaper(height/length, data.taper, length, baseRadius);
 
-                vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius, radialResolution));
+                float flare = CalculateFlare(height/length);
+
+                vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius * flare, radialResolution));
 
                 vertexSegmentIndex++;
 
@@ -138,6 +140,16 @@ public class Trunk {
         }
 
         return vertexSet;
+
+    }
+
+    private float CalculateFlare(float _height) {
+
+        float y = 1 - 8 * _height;
+
+        float flareZ = data.flare * (Mathf.Pow(100, y) - 1) / 100 + 1;
+
+        return flareZ;
 
     }
 
