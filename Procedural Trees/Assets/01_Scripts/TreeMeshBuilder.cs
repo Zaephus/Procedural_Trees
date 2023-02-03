@@ -71,9 +71,11 @@ public static class TreeMeshBuilder {
             else {
                 radiusZ = (1 - depth) * taperZ + depth * Mathf.Sqrt((taperZ * taperZ) - ((zThree - taperZ)*(zThree - taperZ)));
             }
+            
         }
 
         return radiusZ;
+
     }
 
     public static List<Vector3> SetFlatShadedNormals(List<Vector3> _vertices, List<int> _triangles) {

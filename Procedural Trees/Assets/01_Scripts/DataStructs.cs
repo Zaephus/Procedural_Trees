@@ -9,7 +9,7 @@ public struct TrunkData {
     public float length;
     public float lengthVariance;
     public float taper;
-    public int splits;
+    public int baseSplits;
     public int segmentSplits;
     public float splitAngle;
     public float splitAngleVariance;
