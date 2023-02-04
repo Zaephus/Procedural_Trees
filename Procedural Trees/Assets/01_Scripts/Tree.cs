@@ -60,16 +60,30 @@ public class Tree : MonoBehaviour {
     private BranchData[] branchDatas;
     #endregion
     
+    [SerializeField]
+    private List<Mesh> meshes = new List<Mesh>();
+    
     public void Generate() {
 
+        meshes.Clear();
+
         Trunk trunk = new Trunk(Vector3.zero, Vector3.zero, startHeight, radialVertexResolution, segmentVertexResolution, scale, scaleVariance, zScale, zScaleVariance, levels, 0, ratio, trunkData);
-        Mesh trunkMesh = trunk.CreateTrunkMesh();
+        meshes.AddRange(trunk.CreateTrunkMesh());
 
         if(flatShaded) {
-            trunkMesh = TreeMeshBuilder.SetFlatShadedNormals(trunkMesh);
+            for(int i = 0; i < meshes.Count; i++) {
+                meshes[i] = TreeMeshBuilder.SetFlatShadedNormals(meshes[i]);
+            }
         }
 
-        meshFilter.sharedMesh = trunkMesh;
+        CombineInstance[] combines = new CombineInstance[meshes.Count];
+
+        for(int i = 0; i < meshes.Count; i++) {
+            combines[i].mesh = meshes[i];
+            combines[i].transform = Matrix4x4.identity;
+        }
+        meshFilter.sharedMesh = new Mesh();
+        meshFilter.sharedMesh.CombineMeshes(combines);
 
     }
 
