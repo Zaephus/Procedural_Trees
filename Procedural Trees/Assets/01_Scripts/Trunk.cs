@@ -5,6 +5,11 @@ using UnityEngine;
 public class Trunk {
 
     private Vector3 startPoint;
+    private Vector3 startRotation;
+
+    private float currentHeight;
+
+    private int currentLevel;
 
     private int radialResolution;
     private int segmentResolution;
@@ -16,6 +21,7 @@ public class Trunk {
     private float scaleVariance;
     private float zScale;
     private float zScaleVariance;
+    private int levels;
     private float ratio;
 
     private TrunkData data;
@@ -23,17 +29,23 @@ public class Trunk {
     #endregion
 
     private float length;
+    private float lengthLeft;
     private float segmentLength;
     private float baseRadius;
+
+    private int startIndex;
 
     private List<VertexSegment> vertexSegments = new List<VertexSegment>();
 
     private List<Vector3> vertices = new List<Vector3>();
     private List<int> triangles = new List<int>();
 
-    public Trunk(Vector3 _startPoint, int _radRes, int _segRes, float _scale, float _scaleV, float _zScale, float _zScaleV, float _ratio, TrunkData _data) {
+    public Trunk(Vector3 _startPoint, Vector3 _startRotation, float _currentHeight, int _radRes, int _segRes, float _scale, float _scaleV, float _zScale, float _zScaleV, int _levels, int _currentLevel, float _ratio, TrunkData _data) {
         
         startPoint = _startPoint;
+        startRotation = _startRotation;
+
+        currentHeight = _currentHeight;
 
         radialResolution = _radRes;
         segmentResolution = _segRes;
@@ -42,15 +54,23 @@ public class Trunk {
         scaleVariance = _scaleV;
         zScale = _zScale;
         zScaleVariance = _zScaleV;
+
+        levels = _levels;
+        currentLevel = _currentLevel;
+
         ratio = _ratio;
 
         data = _data;
 
+        length = (scale + scaleVariance) * (data.length + data.lengthVariance);
+        lengthLeft = (1 - currentHeight) * length;
+
         vertexSegmentAmount = data.curveResolution * segmentResolution + 1;
 
-        length = (scale + scaleVariance) * (data.length + data.lengthVariance);
         segmentLength = length/(vertexSegmentAmount - 1);
         baseRadius = length * ratio * (data.scale + data.scaleVariance);
+
+        startIndex = Mathf.RoundToInt((length - lengthLeft) / segmentLength);
 
     }
 
@@ -73,13 +93,18 @@ public class Trunk {
 
         int vertexSegmentIndex = 0;
 
-        for(int i = 0; i < vertexSegmentAmount; i++) {
+        float error = 0;
+        float segmentSplitsEffective = 0;
+
+        for(int i = 0; i < vertexSegmentAmount - startIndex; i++) {
 
             if(i > 0) {
 
                 rotation = vertexSegmentSet[i-1].rotation;
 
                 if(vertexSegmentIndex == 0) {
+
+                    #region Rotation    
                     if(data.curveBack == 0) {
                         rotation += new Vector3(
                             Mathf.Deg2Rad * (data.curve/data.curveResolution),
@@ -103,6 +128,14 @@ public class Trunk {
                             );
                         }
                     }
+                    #endregion
+
+                    segmentSplitsEffective = Mathf.Round(data.segmentSplits + error);
+                    //split in the amount of segmentSplitsEffective
+                    //Debug.Log(segmentSplitsEffective);
+
+                    error -= segmentSplitsEffective - data.segmentSplits;
+
                 }
 
                 Vector3 PQ = vertexSegmentSet[i-1].midPoint - vertexSegmentSet[i-1].vertices[0];
@@ -114,7 +147,8 @@ public class Trunk {
 
             }
 
-            float height = i * segmentLength;
+            float height = i * segmentLength + (length - lengthLeft);
+
             float radius = TreeMeshBuilder.CalculateTaper(height/length, data.taper, length, baseRadius);
             float flare = CalculateFlare(height/length);
 

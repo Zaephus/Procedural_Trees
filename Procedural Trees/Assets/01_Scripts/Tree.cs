@@ -24,6 +24,9 @@ public class Tree : MonoBehaviour {
     [SerializeField, Range(1, 16)]
     private int segmentVertexResolution;
 
+    [SerializeField, Range(0, 0.999f)]
+    private float startHeight;
+
     [SerializeField]
     private MeshFilter meshFilter;
 
@@ -42,6 +45,8 @@ public class Tree : MonoBehaviour {
     [SerializeField]
     private float zScaleVariance;
     [SerializeField]
+    private int levels;
+    [SerializeField]
     private float ratio;
     [SerializeField]
     private float ratioPower;
@@ -57,7 +62,7 @@ public class Tree : MonoBehaviour {
     
     public void Generate() {
 
-        Trunk trunk = new Trunk(transform.position, radialVertexResolution, segmentVertexResolution, scale, scaleVariance, zScale, zScaleVariance, ratio, trunkData);
+        Trunk trunk = new Trunk(Vector3.zero, Vector3.zero, startHeight, radialVertexResolution, segmentVertexResolution, scale, scaleVariance, zScale, zScaleVariance, levels, 0, ratio, trunkData);
         Mesh trunkMesh = trunk.CreateTrunkMesh();
 
         if(flatShaded) {
