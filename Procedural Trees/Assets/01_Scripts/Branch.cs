@@ -2,12 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Trunk {
+public class Branch {
 
     private Vector3 startPoint;
     private Vector3 startRotation;
-
-    private float currentHeight;
 
     private int currentLevel;
 
@@ -15,10 +13,12 @@ public class Trunk {
     private int segmentResolution;
     private int vertexSegmentAmount;
 
-    #region Parameters
+    #region Parameters;
 
     private Tree tree;
 
+    private TreeShape shape;
+    private float baseSize;
     private float scale;
     private float scaleVariance;
     private float zScale;
@@ -26,18 +26,19 @@ public class Trunk {
     private int levels;
     private float ratio;
 
-    private TrunkData data;
+    private BranchData data;
+    private BranchData nextData;
 
     #endregion
 
+    private float offset;
+
+    private float parentLength;
     private float length;
-    private float lengthLeft;
     private float segmentLength;
     private float baseRadius;
 
     private int branchAmount;
-
-    private int startIndex;
 
     private List<VertexSegment> vertexSegments = new List<VertexSegment>();
 
@@ -46,45 +47,66 @@ public class Trunk {
 
     private List<Mesh> meshes = new List<Mesh>();
 
-    public Trunk(Tree _tree, Vector3 _startPoint, Vector3 _startRotation, float _currentHeight, int _radRes, int _segRes, int _currentLevel) {
-        
+    public Branch(Tree _tree, float _parentLength, float _parentRadius, Vector3 _startPoint, Vector3 _startRotation, float _offset, int _radRes, int _segRes, int _currentLevel) {
+
         tree = _tree;
+
+        parentLength = _parentLength;
 
         startPoint = _startPoint;
         startRotation = _startRotation;
 
-        currentHeight = _currentHeight;
+        radialResolution = (int)Mathf.Clamp(_radRes/1.5f, 3, 32);
+        segmentResolution = (int)Mathf.Clamp(_segRes/1.5f, 1, 16);
 
-        radialResolution = _radRes;
-        segmentResolution = _segRes;
-
+        shape = tree.shape;
+        baseSize = tree.baseSize;
         scale = tree.scale;
         scaleVariance = tree.scaleVariance;
         zScale = tree.zScale;
-        zScaleVariance = tree.zScaleVariance;
 
         levels = tree.levels;
         currentLevel = _currentLevel;
 
         ratio = tree.ratio;
 
-        data = tree.trunkData;
+        offset = _offset;
 
-        length = (scale + scaleVariance) * (data.length + data.lengthVariance);
-        lengthLeft = (1 - currentHeight) * length;
+        switch(currentLevel) {
+            case 1:
+                data = tree.firstBranchData;
+                nextData = tree.secondBrachData;
+                break;
+            case 2:
+                data = tree.secondBrachData;
+                nextData = tree.thirdBranchData;
+                break;
+            case 3:
+                data = tree.thirdBranchData;
+                nextData = tree.thirdBranchData;
+                break;
+        }
+
+        float lengthBase = baseSize * (scale + scaleVariance);
+
+        if(currentLevel == 1) {
+            length = parentLength * (data.length + data.lengthVariance) * ShapeRatio(shape, (parentLength - offset) / (parentLength - lengthBase));
+            branchAmount = Mathf.RoundToInt(nextData.branches * (0.2f + 0.8f * (length / parentLength) / (data.length + data.length)));
+        }
+        else {
+            length = (data.length + data.lengthVariance) * (parentLength - 0.6f * offset);
+            branchAmount = Mathf.RoundToInt(nextData.branches * (1.0f -0.5f * offset / parentLength));
+        }
 
         vertexSegmentAmount = data.curveResolution * segmentResolution + 1;
 
         segmentLength = length/(vertexSegmentAmount - 1);
-        baseRadius = length * ratio * (data.scale + data.scaleVariance);
 
-        branchAmount = tree.firstBranchData.branches;
-
-        startIndex = Mathf.RoundToInt((length - lengthLeft) / segmentLength);
+        baseRadius = _parentRadius * Mathf.Pow(length / parentLength, tree.ratioPower);
 
     }
 
-    public List<Mesh> CreateTrunkMesh() {
+    public List<Mesh> CreateBranchMesh() {
 
         meshes.Clear();
 
@@ -115,14 +137,13 @@ public class Trunk {
 
         int branchesLeft = branchAmount;
 
-        for(int i = 0; i < vertexSegmentAmount - startIndex; i++) {
+        for(int i = 0; i < vertexSegmentAmount; i++) {
 
-            float height = i * segmentLength + (length - lengthLeft);
+            float height = i * segmentLength;
 
             float radius = TreeMeshBuilder.CalculateTaper(height/length, data.taper, length, baseRadius);
-            float flare = CalculateFlare(height/length);
-
-            if(i > 0) {
+            
+            if( i > 0) {
 
                 Vector3 PQ = vertexSegmentSet[i-1].midPoint - vertexSegmentSet[i-1].vertices[0];
                 Vector3 PR = vertexSegmentSet[i-1].midPoint - vertexSegmentSet[i-1].vertices[1];
@@ -132,7 +153,7 @@ public class Trunk {
                 midPoint = vertexSegmentSet[i-1].midPoint + normal * segmentLength;
 
                 rotation = vertexSegmentSet[i-1].rotation;
-
+                
                 if(vertexSegmentIndex == 0) {
 
                     #region Rotation
@@ -197,8 +218,8 @@ public class Trunk {
                                     0
                                 );
 
-                                Trunk trunk = new Trunk(tree, midPoint, splitRotation, height/length, radialResolution, segmentResolution, currentLevel + 1);
-                                meshes.AddRange(trunk.CreateTrunkMesh());
+                                Branch branch = new Branch(tree,length, baseRadius, midPoint, splitRotation, height/length, radialResolution, segmentResolution, currentLevel + 1);
+                                meshes.AddRange(branch.CreateBranchMesh());
 
                             }
 
@@ -212,65 +233,67 @@ public class Trunk {
 
             }
 
-            vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius * flare, radialResolution));
+            vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius, radialResolution));
 
             #region Branches
-            if(height / length >= tree.baseSize) {
+            if(currentLevel <= levels && nextData.length > 0) {
+                if(height / length >= tree.baseSize) {
 
-                float lengthBase = tree.baseSize * (scale + scaleVariance);
+                    float lengthBase = tree.baseSize * (scale + scaleVariance);
 
-                Vector3 lastRot = Vector3.zero;
-                BranchData nextData = tree.firstBranchData;
+                    Vector3 lastRot = Vector3.zero;
+                    BranchData nextData = tree.firstBranchData;
 
-                Vector3 branchRotation = Vector3.zero;
+                    Vector3 branchRotation = Vector3.zero;
 
-                int vertexSegmentBranches = branchesLeft / (vertexSegmentAmount - i);
-                float heightBetweenBranches = segmentLength / vertexSegmentBranches;
-                
-                for(int j = 0; j < vertexSegmentBranches; j++) {
+                    int vertexSegmentBranches = branchesLeft / (vertexSegmentAmount - i);
+                    float heightBetweenBranches = segmentLength / vertexSegmentBranches;
+                    
+                    for(int j = 0; j < vertexSegmentBranches; j++) {
 
-                    float branchHeight = height - heightBetweenBranches * j;
+                        float branchHeight = height - heightBetweenBranches * j;
 
-                    if(nextData.downAngleVariance >= 0) {
-                        branchRotation = new Vector3(
-                            Mathf.Deg2Rad * (nextData.downAngle + nextData.downAngleVariance),
-                            0,
-                            0
-                        );
+                        if(nextData.downAngleVariance >= 0) {
+                            branchRotation = new Vector3(
+                                Mathf.Deg2Rad * (nextData.downAngle + nextData.downAngleVariance),
+                                0,
+                                0
+                            );
+                        }
+                        else {
+                            branchRotation = new Vector3(
+                                Mathf.Deg2Rad * (nextData.downAngle + (nextData.downAngleVariance * (1 - 2 * Branch.ShapeRatio(0, (length - branchHeight) / (length - lengthBase))))),
+                                0,
+                                0
+                            );
+                        }
+
+                        if(nextData.rotate >= 0) {
+                            branchRotation += new Vector3(
+                                0,
+                                lastRot.y + Mathf.Deg2Rad * (nextData.rotate + nextData.rotateVariance),
+                                0
+                            );
+                        }
+                        else {
+                            branchRotation += new Vector3(
+                                0,
+                                lastRot.y + Mathf.Deg2Rad * (180 + nextData.rotate + nextData.rotateVariance),
+                                0
+                            );
+                        }
+
+                        lastRot = branchRotation;
+
+                        Branch branch = new Branch(tree, length, baseRadius, vertexSegmentSet[i].midPoint - heightBetweenBranches * j * normal, branchRotation, branchHeight, radialResolution, segmentResolution, currentLevel + 1);
+                        meshes.AddRange(branch.CreateBranchMesh());
+
                     }
-                    else {
-                        branchRotation = new Vector3(
-                            Mathf.Deg2Rad * (nextData.downAngle + (nextData.downAngleVariance * (1 - 2 * Branch.ShapeRatio(0, (length - branchHeight) / (length - lengthBase))))),
-                            0,
-                            0
-                        );
-                    }
 
-                    if(nextData.rotate >= 0) {
-                        branchRotation += new Vector3(
-                            0,
-                            lastRot.y + Mathf.Deg2Rad * (nextData.rotate + nextData.rotateVariance),
-                            0
-                        );
-                    }
-                    else {
-                        branchRotation += new Vector3(
-                            0,
-                            lastRot.y + Mathf.Deg2Rad * (180 + nextData.rotate + nextData.rotateVariance),
-                            0
-                        );
-                    }
-
-                    lastRot = branchRotation;
-
-                    Branch branch = new Branch(tree, length, baseRadius, vertexSegmentSet[i].midPoint - heightBetweenBranches * j * normal, branchRotation, branchHeight, radialResolution, segmentResolution, currentLevel + 1);
-                    meshes.AddRange(branch.CreateBranchMesh());
+                    branchesLeft -= vertexSegmentBranches;
 
                 }
-
-                branchesLeft -= vertexSegmentBranches;
-
-            }
+            }   
             #endregion
 
             if(vertexSegmentIndex == segmentResolution - 1) {
@@ -298,13 +321,50 @@ public class Trunk {
 
     }
 
-    private float CalculateFlare(float _height) {
+    public static float ShapeRatio(TreeShape _shape, float _ratio) {
 
-        float y = 1 - 8 * _height;
+        float branchRatio = Mathf.Clamp(_ratio, 0.01f, 0.99f);
 
-        float flareZ = data.flare * (Mathf.Pow(100, y) - 1) / 100 + 1;
+        switch(_shape) {
 
-        return flareZ;
+            case TreeShape.Conical:
+                return 0.2f + 0.8f * branchRatio;
+            
+            case TreeShape.Spherical:
+                return 0.2f + 0.8f * Mathf.Sin(Mathf.PI * branchRatio);
+
+            case TreeShape.HemiSpherical:
+                return 0.2f + 0.8f * Mathf.Sin(0.5f * Mathf.PI * branchRatio);
+
+            case TreeShape.Cylindrical:
+                return 1.0f;
+
+            case TreeShape.TaperedCylindrical:
+                return 0.5f + 0.5f + branchRatio;
+
+            case TreeShape.Flame:
+                if(branchRatio <= 0.7f) {
+                    return branchRatio / 0.7f;
+                }
+                else {
+                    return (1.0f - branchRatio) / 0.3f;
+                }
+
+            case TreeShape.InverseConical:
+                return 1.0f - 0.8f * branchRatio;
+
+            case TreeShape.TendFlame:
+                if(branchRatio <= 0.7f) {
+                    return 0.5f + 0.5f * (branchRatio / 0.7f);
+                }
+                else {
+                    return 0.5f + 0.5f * ((1.0f - branchRatio) / 0.3f);
+                }
+
+            default:
+                return 1.0f;
+
+        }
 
     }
 

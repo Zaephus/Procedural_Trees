@@ -32,57 +32,44 @@ public class Tree : MonoBehaviour {
 
     #region Main Parameters
     [Header("Main Parameters")]
-    [SerializeField]
-    private TreeShape shape;
-    [SerializeField]
-    private float baseSize;
-    [SerializeField]
-    private float scale;
-    [SerializeField]
-    private float scaleVariance;
-    [SerializeField]
-    private float zScale;
-    [SerializeField]
-    private float zScaleVariance;
-    [SerializeField]
-    private int levels;
-    [SerializeField]
-    private float ratio;
-    [SerializeField]
-    private float ratioPower;
+    public TreeShape shape;
+    public float baseSize;
+    public float scale;
+    public float scaleVariance;
+    public float zScale;
+    public float zScaleVariance;
+    public int levels;
+    public float ratio;
+    public float ratioPower;
     #endregion
 
     #region Trunk and Branch Parameters
     [Header("Trunk and Branch Parameters")]
-    [SerializeField]
-    private TrunkData trunkData;
-    [SerializeField]
-    private BranchData[] branchDatas;
+    public TrunkData trunkData;
+    public BranchData firstBranchData;
+    public BranchData secondBrachData;
+    public BranchData thirdBranchData;
     #endregion
-    
-    [SerializeField]
-    private List<Mesh> meshes = new List<Mesh>();
     
     public void Generate() {
 
-        meshes.Clear();
-
-        Trunk trunk = new Trunk(Vector3.zero, Vector3.zero, startHeight, radialVertexResolution, segmentVertexResolution, scale, scaleVariance, zScale, zScaleVariance, levels, 0, ratio, trunkData);
-        meshes.AddRange(trunk.CreateTrunkMesh());
+        Trunk trunk = new Trunk(this, Vector3.zero, Vector3.zero, startHeight, radialVertexResolution, segmentVertexResolution, 0);
+        Mesh[] meshes = trunk.CreateTrunkMesh().ToArray();
 
         if(flatShaded) {
-            for(int i = 0; i < meshes.Count; i++) {
+            for(int i = 0; i < meshes.Length; i++) {
                 meshes[i] = TreeMeshBuilder.SetFlatShadedNormals(meshes[i]);
             }
         }
 
-        CombineInstance[] combines = new CombineInstance[meshes.Count];
+        CombineInstance[] combines = new CombineInstance[meshes.Length];
 
-        for(int i = 0; i < meshes.Count; i++) {
+        for(int i = 0; i < meshes.Length; i++) {
             combines[i].mesh = meshes[i];
             combines[i].transform = Matrix4x4.identity;
         }
         meshFilter.sharedMesh = new Mesh();
+        meshFilter.sharedMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         meshFilter.sharedMesh.CombineMeshes(combines);
 
     }

@@ -37,6 +37,6 @@ public struct BranchData {
     public int curveResolution;
     public float curve;
     public float curveBack;
-    public float curveVariation;
+    public float curveVariance;
 
 }

@@ -71,7 +71,7 @@ public static class TreeMeshBuilder {
             else {
                 radiusZ = (1 - depth) * taperZ + depth * Mathf.Sqrt((taperZ * taperZ) - ((zThree - taperZ)*(zThree - taperZ)));
             }
-            
+
         }
 
         return radiusZ;
@@ -123,6 +123,10 @@ public static class TreeMeshBuilder {
         mesh.RecalculateBounds();
 
         return mesh;
+    }
+
+    public static int RandomSign() {
+        return Random.Range(0, 2) * 2 - 1;
     }
 
 }
