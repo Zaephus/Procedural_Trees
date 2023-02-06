@@ -44,7 +44,8 @@ public class Trunk {
     private List<Vector3> vertices = new List<Vector3>();
     private List<int> triangles = new List<int>();
 
-    private List<Mesh> meshes = new List<Mesh>();
+    private List<Mesh> stemMeshes = new List<Mesh>();
+    private List<Mesh> leafMeshes = new List<Mesh>();
 
     public Trunk(Tree _tree, Vector3 _startPoint, Vector3 _startRotation, float _currentHeight, int _radRes, int _segRes, int _currentLevel) {
         
@@ -86,16 +87,20 @@ public class Trunk {
 
     public List<Mesh> CreateTrunkMesh() {
 
-        meshes.Clear();
+        stemMeshes.Clear();
 
         vertexSegments = SetSegments();
         vertices = SetVertices();
         triangles = TreeMeshBuilder.SetTriangles(vertices.Count, radialResolution);
 
-        meshes.Add(TreeMeshBuilder.CreateMesh(vertices, triangles));
+        stemMeshes.Add(TreeMeshBuilder.CreateMesh(vertices, triangles));
 
-        return meshes;
+        return stemMeshes;
 
+    }
+
+    public List<Mesh> GetLeafMeshes() {
+        return leafMeshes;
     }
 
     private List<VertexSegment> SetSegments() {
@@ -197,8 +202,9 @@ public class Trunk {
                                     0
                                 );
 
-                                Trunk trunk = new Trunk(tree, midPoint, splitRotation, height/length, radialResolution, segmentResolution, currentLevel + 1);
-                                meshes.AddRange(trunk.CreateTrunkMesh());
+                                Trunk trunk = new Trunk(tree, midPoint, splitRotation, height/length, radialResolution, segmentResolution, currentLevel);
+                                stemMeshes.AddRange(trunk.CreateTrunkMesh());
+                                leafMeshes.AddRange(trunk.GetLeafMeshes());
 
                             }
 
@@ -264,7 +270,8 @@ public class Trunk {
                     lastRot = branchRotation;
 
                     Branch branch = new Branch(tree, length, baseRadius, vertexSegmentSet[i].midPoint - heightBetweenBranches * j * normal, branchRotation, branchHeight, radialResolution, segmentResolution, currentLevel + 1);
-                    meshes.AddRange(branch.CreateBranchMesh());
+                    stemMeshes.AddRange(branch.CreateBranchMesh());
+                    leafMeshes.AddRange(branch.GetLeafMeshes());
 
                 }
 

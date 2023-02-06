@@ -39,13 +39,15 @@ public class Branch {
     private float baseRadius;
 
     private int branchAmount;
+    private int leafAmount;
 
     private List<VertexSegment> vertexSegments = new List<VertexSegment>();
 
     private List<Vector3> vertices = new List<Vector3>();
     private List<int> triangles = new List<int>();
 
-    private List<Mesh> meshes = new List<Mesh>();
+    private List<Mesh> stemMeshes = new List<Mesh>();
+    private List<Mesh> leafMeshes = new List<Mesh>();
 
     public Branch(Tree _tree, float _parentLength, float _parentRadius, Vector3 _startPoint, Vector3 _startRotation, float _offset, int _radRes, int _segRes, int _currentLevel) {
 
@@ -98,6 +100,8 @@ public class Branch {
             branchAmount = Mathf.RoundToInt(nextData.branches * (1.0f -0.5f * offset / parentLength));
         }
 
+        leafAmount = Mathf.RoundToInt(tree.leaves * ShapeRatio(TreeShape.TaperedCylindrical, offset/parentLength));
+
         vertexSegmentAmount = data.curveResolution * segmentResolution + 1;
 
         segmentLength = length/(vertexSegmentAmount - 1);
@@ -108,16 +112,20 @@ public class Branch {
 
     public List<Mesh> CreateBranchMesh() {
 
-        meshes.Clear();
+        stemMeshes.Clear();
 
         vertexSegments = SetSegments();
         vertices = SetVertices();
         triangles = TreeMeshBuilder.SetTriangles(vertices.Count, radialResolution);
 
-        meshes.Add(TreeMeshBuilder.CreateMesh(vertices, triangles));
+        stemMeshes.Add(TreeMeshBuilder.CreateMesh(vertices, triangles));
 
-        return meshes;
+        return stemMeshes;
 
+    }
+
+    public List<Mesh> GetLeafMeshes() {
+        return leafMeshes;
     }
 
     private List<VertexSegment> SetSegments() {
@@ -136,6 +144,7 @@ public class Branch {
         float angleSplit = 0;
 
         int branchesLeft = branchAmount;
+        int leavesLeft = leafAmount;
 
         for(int i = 0; i < vertexSegmentAmount; i++) {
 
@@ -219,7 +228,8 @@ public class Branch {
                                 );
 
                                 Branch branch = new Branch(tree,length, baseRadius, midPoint, splitRotation, height/length, radialResolution, segmentResolution, currentLevel + 1);
-                                meshes.AddRange(branch.CreateBranchMesh());
+                                stemMeshes.AddRange(branch.CreateBranchMesh());
+                                leafMeshes.AddRange(branch.GetLeafMeshes());
 
                             }
 
@@ -235,66 +245,120 @@ public class Branch {
 
             vertexSegmentSet.Add(new VertexSegment(midPoint, rotation, radius, radialResolution));
 
-            #region Branches
-            if(currentLevel <= levels && nextData.length > 0) {
-                if(height / length >= tree.baseSize) {
+            if(currentLevel <= levels) {
 
-                    float lengthBase = tree.baseSize * (scale + scaleVariance);
+                float lengthBase = tree.baseSize * (scale + scaleVariance);
 
-                    Vector3 lastRot = Vector3.zero;
-                    BranchData nextData = tree.firstBranchData;
+                if(currentLevel == levels-1) {
 
-                    Vector3 branchRotation = Vector3.zero;
+                    int vertexSegmentLeaves = leavesLeft / (vertexSegmentAmount - i);
+                    float heightBetweenLeaves = segmentLength / vertexSegmentLeaves;
 
-                    int vertexSegmentBranches = branchesLeft / (vertexSegmentAmount - i);
-                    float heightBetweenBranches = segmentLength / vertexSegmentBranches;
-                    
-                    for(int j = 0; j < vertexSegmentBranches; j++) {
+                    Vector3 leafRotation = Vector3.zero;
+                    Vector3 lastRotation = Vector3.zero;
 
-                        float branchHeight = height - heightBetweenBranches * j;
+                    for(int j = 0; j < vertexSegmentLeaves; j++) {
+
+                        float leafHeight = height - heightBetweenLeaves * j;
 
                         if(nextData.downAngleVariance >= 0) {
-                            branchRotation = new Vector3(
+                            leafRotation = new Vector3(
                                 Mathf.Deg2Rad * (nextData.downAngle + nextData.downAngleVariance),
                                 0,
                                 0
                             );
                         }
                         else {
-                            branchRotation = new Vector3(
-                                Mathf.Deg2Rad * (nextData.downAngle + (nextData.downAngleVariance * (1 - 2 * Branch.ShapeRatio(0, (length - branchHeight) / (length - lengthBase))))),
+                            leafRotation = new Vector3(
+                                Mathf.Deg2Rad * (nextData.downAngle + (nextData.downAngleVariance * (1 - 2 * Branch.ShapeRatio(0, (length - leafHeight) / (length - lengthBase))))),
                                 0,
                                 0
                             );
                         }
 
                         if(nextData.rotate >= 0) {
-                            branchRotation += new Vector3(
+                            leafRotation += new Vector3(
                                 0,
-                                lastRot.y + Mathf.Deg2Rad * (nextData.rotate + nextData.rotateVariance),
+                                lastRotation.y + Mathf.Deg2Rad * (nextData.rotate + nextData.rotateVariance),
                                 0
                             );
                         }
                         else {
-                            branchRotation += new Vector3(
+                            leafRotation += new Vector3(
                                 0,
-                                lastRot.y + Mathf.Deg2Rad * (180 + nextData.rotate + nextData.rotateVariance),
+                                lastRotation.y + Mathf.Deg2Rad * (180 + nextData.rotate + nextData.rotateVariance),
                                 0
                             );
                         }
 
-                        lastRot = branchRotation;
+                        lastRotation = leafRotation;
 
-                        Branch branch = new Branch(tree, length, baseRadius, vertexSegmentSet[i].midPoint - heightBetweenBranches * j * normal, branchRotation, branchHeight, radialResolution, segmentResolution, currentLevel + 1);
-                        meshes.AddRange(branch.CreateBranchMesh());
+                        Leaf leaf = new Leaf(tree, vertexSegmentSet[i].midPoint - heightBetweenLeaves * j * normal, leafRotation);
+                        leafMeshes.Add(leaf.CreateLeafMesh());
 
                     }
 
-                    branchesLeft -= vertexSegmentBranches;
+                    leavesLeft -= vertexSegmentLeaves;
+                    
+                }
+                else {
+                    if(height / length >= tree.baseSize) {
 
+                        BranchData nextData = tree.firstBranchData;
+
+                        Vector3 branchRotation = Vector3.zero;
+                        Vector3 lastRotation = Vector3.zero;
+
+                        int vertexSegmentBranches = branchesLeft / (vertexSegmentAmount - i);
+                        float heightBetweenBranches = segmentLength / vertexSegmentBranches;
+                        
+                        for(int j = 0; j < vertexSegmentBranches; j++) {
+
+                            float branchHeight = height - heightBetweenBranches * j;
+
+                            if(nextData.downAngleVariance >= 0) {
+                                branchRotation = new Vector3(
+                                    Mathf.Deg2Rad * (nextData.downAngle + nextData.downAngleVariance),
+                                    0,
+                                    0
+                                );
+                            }
+                            else {
+                                branchRotation = new Vector3(
+                                    Mathf.Deg2Rad * (nextData.downAngle + (nextData.downAngleVariance * (1 - 2 * Branch.ShapeRatio(0, (length - branchHeight) / (length - lengthBase))))),
+                                    0,
+                                    0
+                                );
+                            }
+
+                            if(nextData.rotate >= 0) {
+                                branchRotation += new Vector3(
+                                    0,
+                                    lastRotation.y + Mathf.Deg2Rad * (nextData.rotate + nextData.rotateVariance),
+                                    0
+                                );
+                            }
+                            else {
+                                branchRotation += new Vector3(
+                                    0,
+                                    lastRotation.y + Mathf.Deg2Rad * (180 + nextData.rotate + nextData.rotateVariance),
+                                    0
+                                );
+                            }
+
+                            lastRotation = branchRotation;
+
+                            Branch branch = new Branch(tree, length, baseRadius, vertexSegmentSet[i].midPoint - heightBetweenBranches * j * normal, branchRotation, branchHeight, radialResolution, segmentResolution, currentLevel + 1);
+                            stemMeshes.AddRange(branch.CreateBranchMesh());
+                            leafMeshes.AddRange(branch.GetLeafMeshes());
+
+                        }
+
+                        branchesLeft -= vertexSegmentBranches;
+
+                    }
                 }
             }   
-            #endregion
 
             if(vertexSegmentIndex == segmentResolution - 1) {
                 vertexSegmentIndex = 0;

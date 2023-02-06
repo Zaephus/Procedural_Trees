@@ -31,7 +31,7 @@ public struct BranchData {
     public float length;
     public float lengthVariance;
     public float taper;
-    public int segmentSplits;
+    public float segmentSplits;
     public float splitAngle;
     public float splitAngleVariance;
     public int curveResolution;

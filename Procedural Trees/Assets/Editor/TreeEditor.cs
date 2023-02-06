@@ -18,7 +18,7 @@ public class TreeEditor : Editor {
 
             base.OnInspectorGUI();
 
-            if(check.changed) {
+            if(check.changed && tree.liveUpdate) {
                 tree.Generate();
             }
 
